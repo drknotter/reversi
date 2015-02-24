@@ -46,4 +46,29 @@ public class ReversiBoardModel
     public void setSize(int size) {
         this.size = size;
     }
+
+    public int getX(int index)
+    {
+        return index % size;
+    }
+
+    public int getY(int index)
+    {
+        return index / size;
+    }
+
+    public int getIndex(int x, int y)
+    {
+        return size * y + x;
+    }
+
+    public boolean isInBounds(int index)
+    {
+        return index >= 0 && index < size * size;
+    }
+
+    public boolean isInBounds(int x, int y)
+    {
+        return isInBounds(getIndex(x,y));
+    }
 }

@@ -1,5 +1,7 @@
 package com.drknotter.reversi.view;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
@@ -9,8 +11,6 @@ import android.widget.RelativeLayout;
 
 import com.drknotter.reversi.R;
 import com.drknotter.reversi.controller.ReversiBoardController;
-import com.drknotter.reversi.model.ReversiBoardModel;
-import com.drknotter.reversi.model.ReversiPiece;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,14 +22,19 @@ public class ReversiBoardView extends LinearLayout
     private ReversiBoardController controller;
     private List<ImageView> positions;
 
+    private ObjectAnimator selectionPulse;
+    private ImageView selectedPositionView;
+
     public ReversiBoardView(Context context)
     {
         super(context);
     }
+
     public ReversiBoardView(Context context, AttributeSet attrs)
     {
         super(context, attrs);
     }
+
     public ReversiBoardView(Context context, AttributeSet attrs, int defStyle)
     {
         super(context, attrs, defStyle);
@@ -67,9 +72,33 @@ public class ReversiBoardView extends LinearLayout
         addView(divider);
     }
 
-    public ImageView getPositionAt(int index)
+    public ImageView getPositionViewAt(int index)
     {
         return positions.get(index);
+    }
+
+    public void select(int index)
+    {
+        if( selectionPulse != null )
+        {
+            selectionPulse.cancel();
+            selectedPositionView.setAlpha(1f);
+        }
+        selectedPositionView = getPositionViewAt(index);
+        selectionPulse = ObjectAnimator.ofFloat(selectedPositionView, "alpha", 1f, 0f, 1f);
+        selectionPulse.setDuration(750);
+        selectionPulse.setRepeatMode(ValueAnimator.RESTART);
+        selectionPulse.setRepeatCount(ValueAnimator.INFINITE);
+        selectionPulse.start();
+    }
+
+    public void selectNone()
+    {
+        if( selectionPulse != null )
+        {
+            selectionPulse.cancel();
+            selectedPositionView.setAlpha(1f);
+        }
     }
 
     @Override
@@ -120,7 +149,7 @@ public class ReversiBoardView extends LinearLayout
                     @Override
                     public void onClick(View view)
                     {
-                        controller.onPositionTouched(position);
+                        controller.onPositionViewTouched(position);
                     }
                 });
             }
@@ -137,6 +166,6 @@ public class ReversiBoardView extends LinearLayout
 
     public interface OnPositionTouchedListener
     {
-        public void onPositionTouched(int position);
+        public void onPositionViewTouched(int position);
     }
 }

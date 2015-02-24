@@ -24,4 +24,19 @@ public enum ReversiPiece
         }
         return resId;
     }
+
+    public ReversiPiece getOpponent()
+    {
+        ReversiPiece opponent = null;
+        switch( this )
+        {
+            case DARK:
+                opponent = ReversiPiece.LIGHT;
+                break;
+            case LIGHT:
+                opponent = ReversiPiece.DARK;
+                break;
+        }
+        return opponent;
+    }
 }

@@ -11,6 +11,8 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
 {
     private ReversiBoardModel model;
     private ReversiBoardView view;
+    private ReversiPiece activePlayer = ReversiPiece.DARK;
+    private int currentSelectedIndex = -1;
 
     public ReversiBoardController(ReversiBoardModel model, ReversiBoardView view)
     {
@@ -34,25 +36,48 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
     }
 
     @Override
-    public void onPositionTouched(int position)
+    public void onPositionViewTouched(int index)
     {
-        ReversiPiece piece = model.getPieceAt(position);
-        ReversiPiece newPiece = null;
-        if (piece == null)
+        if( isValidMove(index) )
         {
-            newPiece = ReversiPiece.DARK;
+
         }
-        else if (piece == ReversiPiece.DARK)
+        else
         {
-            newPiece = ReversiPiece.LIGHT;
+            view.selectNone();
         }
-        else if (piece == ReversiPiece.LIGHT)
+    }
+
+    public boolean isValidMove(int index)
+    {
+        boolean valid = false;
+        int x = model.getX(index);
+        int y = model.getY(index);
+
+        for( int dx = -1; dx <=1; dx++ )
         {
-            newPiece = null;
+            for( int dy = -1; dy <= 1; dy++ )
+            {
+                if( dx == 0 && dy == 0 )
+                {
+                    continue;
+                }
+
+                if( model.isInBounds(x+dx,y+dy)
+                        && model.getPieceAt(x+dx,y+dy) == activePlayer.getOpponent() )
+                {
+                    int r = 2;
+                    while( model.isInBounds(x+r*dx, y+r*dy)
+                            && model.getPieceAt(x+r*dx, y+r*dy) == activePlayer.getOpponent() )
+                    {
+                        r++;
+                    }
+                }
+            }
         }
 
-        model.putPieceAt(position, newPiece);
-        updateView();
+
+        return valid;
     }
 
     public void updateView()
@@ -65,7 +90,7 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
             {
                 resId = piece.getImageResource();
             }
-            view.getPositionAt(i).setImageResource(resId);
+            view.getPositionViewAt(i).setImageResource(resId);
         }
     }
 }
