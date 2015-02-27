@@ -10,7 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
 import com.drknotter.reversi.R;
-import com.drknotter.reversi.controller.ReversiBoardController;
+import com.drknotter.reversi.model.ReversiPiece;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,11 +19,12 @@ public class ReversiBoardView extends LinearLayout
 {
     private static final String TAG = ReversiBoardView.class.getSimpleName();
 
-    private ReversiBoardController controller;
+    private OnPositionTouchedListener listener;
     private List<ImageView> positions;
+    private int boardSize;
 
+    private int currentSelectionIndex = -1;
     private ObjectAnimator selectionPulse;
-    private ImageView selectedPositionView;
 
     public ReversiBoardView(Context context)
     {
@@ -40,26 +41,26 @@ public class ReversiBoardView extends LinearLayout
         super(context, attrs, defStyle);
     }
 
-    public void initialize(ReversiBoardController controller)
+    public void initialize(OnPositionTouchedListener listener, int boardSize)
     {
-        this.controller = controller;
+        this.listener = listener;
+        this.boardSize = boardSize;
         Context context = getContext();
 
         this.setLayoutParams(new RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.MATCH_PARENT, RelativeLayout.LayoutParams.MATCH_PARENT));
         this.setOrientation(LinearLayout.VERTICAL);
-        positions = new ArrayList<ImageView>(controller.getBoardSize() * controller.getBoardSize());
+        positions = new ArrayList<ImageView>(boardSize * boardSize);
         initializeRows(context);
-        controller.updateView();
     }
 
     private void initializeRows(Context context)
     {
         addDivider(context);
 
-        for (int i = 0; i < controller.getModel().getSize(); i++)
+        for (int i = 0; i < boardSize; i++)
         {
-            ReversiRow row = new ReversiRow(context, i);
-            addView(row);
+            ReversiRowView rowView = new ReversiRowView(context, i);
+            addView(rowView);
             addDivider(context);
         }
     }
@@ -72,24 +73,45 @@ public class ReversiBoardView extends LinearLayout
         addView(divider);
     }
 
-    public ImageView getPositionViewAt(int index)
+    public ImageView getPositionViewAt(int x, int y)
     {
-        return positions.get(index);
+        if( x >= 0 && x < boardSize && y >= 0 && y < boardSize )
+        {
+            return positions.get(y * boardSize + x);
+        }
+
+        return null;
     }
 
-    public void select(int index)
+    public boolean isSelected(int x, int y)
     {
-        if( selectionPulse != null )
+        return x >= 0 && x < boardSize && y >= 0 && y < boardSize
+                && currentSelectionIndex == y * boardSize + x;
+    }
+
+    public void select(int x, int y, ReversiPiece piece)
+    {
+        if( x >= 0 && x < boardSize && y >= 0 && y < boardSize )
         {
-            selectionPulse.cancel();
-            selectedPositionView.setAlpha(1f);
+            if (selectionPulse != null)
+            {
+                selectionPulse.cancel();
+            }
+
+            if (currentSelectionIndex >= 0 && currentSelectionIndex < positions.size())
+            {
+                positions.get(currentSelectionIndex).setAlpha(1f);
+            }
+            currentSelectionIndex = y * boardSize + x;
+
+
+            setPieceAt(x, y, piece);
+            selectionPulse = ObjectAnimator.ofFloat(getPositionViewAt(x, y), "alpha", 1f, 0f, 1f);
+            selectionPulse.setDuration(750);
+            selectionPulse.setRepeatMode(ValueAnimator.RESTART);
+            selectionPulse.setRepeatCount(ValueAnimator.INFINITE);
+            selectionPulse.start();
         }
-        selectedPositionView = getPositionViewAt(index);
-        selectionPulse = ObjectAnimator.ofFloat(selectedPositionView, "alpha", 1f, 0f, 1f);
-        selectionPulse.setDuration(750);
-        selectionPulse.setRepeatMode(ValueAnimator.RESTART);
-        selectionPulse.setRepeatCount(ValueAnimator.INFINITE);
-        selectionPulse.start();
     }
 
     public void selectNone()
@@ -97,7 +119,27 @@ public class ReversiBoardView extends LinearLayout
         if( selectionPulse != null )
         {
             selectionPulse.cancel();
-            selectedPositionView.setAlpha(1f);
+        }
+
+        if( currentSelectionIndex >= 0 && currentSelectionIndex < positions.size() )
+        {
+            positions.get(currentSelectionIndex).setAlpha(1f);
+        }
+        currentSelectionIndex = -1;
+    }
+
+    public void setPieceAt(int x, int y, ReversiPiece piece)
+    {
+        if( x >= 0 && x < boardSize && y >= 0 && y < boardSize )
+        {
+            if( piece != null )
+            {
+                getPositionViewAt(x, y).setImageResource(piece.getImageResource());
+            }
+            else if( currentSelectionIndex != y * boardSize + x )
+            {
+                getPositionViewAt(x, y).setImageResource(0);
+            }
         }
     }
 
@@ -117,24 +159,21 @@ public class ReversiBoardView extends LinearLayout
         super.onMeasure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
     }
 
-    private class ReversiRow extends LinearLayout
+    private class ReversiRowView extends LinearLayout
     {
-        private int mRow;
-
-        public ReversiRow(Context context, int row)
+        public ReversiRowView(Context context, int row)
         {
             super(context);
-            this.mRow = row;
-            initialize(context);
+            initialize(context, row);
         }
 
-        private void initialize(Context context)
+        private void initialize(Context context, int row)
         {
             this.setLayoutParams(new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1));
             this.setOrientation(LinearLayout.HORIZONTAL);
             this.addDivider(context);
 
-            for (int i = 0; i < controller.getBoardSize(); i++)
+            for (int i = 0; i < boardSize; i++)
             {
                 ImageView thePosition = new ImageView(context);
                 thePosition.setLayoutParams(new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
@@ -142,14 +181,15 @@ public class ReversiBoardView extends LinearLayout
                 this.addView(thePosition);
                 this.addDivider(context);
 
-                final int position = mRow * controller.getBoardSize() + i;
-                positions.add(position, thePosition);
+                final int x = i;
+                final int y = row;
+                positions.add(y * boardSize + x, thePosition);
                 thePosition.setOnClickListener(new OnClickListener()
                 {
                     @Override
                     public void onClick(View view)
                     {
-                        controller.onPositionViewTouched(position);
+                        listener.onPositionViewTouched(x, y);
                     }
                 });
             }
@@ -166,6 +206,6 @@ public class ReversiBoardView extends LinearLayout
 
     public interface OnPositionTouchedListener
     {
-        public void onPositionViewTouched(int position);
+        public void onPositionViewTouched(int x, int y);
     }
 }

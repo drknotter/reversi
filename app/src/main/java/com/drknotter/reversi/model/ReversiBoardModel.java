@@ -13,62 +13,153 @@ public class ReversiBoardModel
     public ReversiBoardModel()
     {
         state = new SparseArray<ReversiPiece>(size * size);
-        putPieceAt(3,3,ReversiPiece.LIGHT);
-        putPieceAt(4,3,ReversiPiece.DARK);
-        putPieceAt(3,4,ReversiPiece.DARK);
-        putPieceAt(4,4,ReversiPiece.LIGHT);
+        putPieceAt(3, 3, ReversiPiece.LIGHT);
+        putPieceAt(4, 3, ReversiPiece.DARK);
+        putPieceAt(3, 4, ReversiPiece.DARK);
+        putPieceAt(4, 4, ReversiPiece.LIGHT);
     }
 
     public void putPieceAt(int x, int y, ReversiPiece piece)
     {
-        putPieceAt(size * y + x, piece);
+        if( isInBounds(x, y) )
+        {
+            putPieceAt(size * y + x, piece);
+        }
     }
 
-    public void putPieceAt(int index, ReversiPiece piece)
+    private void putPieceAt(int index, ReversiPiece piece)
     {
         state.put(index, piece);
     }
 
     public ReversiPiece getPieceAt(int x, int y)
     {
-        return getPieceAt(size * y + x);
+        if( isInBounds(x, y ) )
+        {
+            return getPieceAt(size * y + x);
+        }
+        else
+        {
+            return null;
+        }
     }
 
-    public ReversiPiece getPieceAt(int index)
+    private ReversiPiece getPieceAt(int index)
     {
         return state.get(index);
     }
 
-    public int getSize() {
+    public int getSize()
+    {
         return size;
     }
 
-    public void setSize(int size) {
+    public void setSize(int size)
+    {
         this.size = size;
     }
 
-    public int getX(int index)
+    private int getX(int index)
     {
         return index % size;
     }
 
-    public int getY(int index)
+    private int getY(int index)
     {
         return index / size;
     }
 
-    public int getIndex(int x, int y)
+    private boolean isInBounds(int index)
     {
-        return size * y + x;
-    }
-
-    public boolean isInBounds(int index)
-    {
-        return index >= 0 && index < size * size;
+        return isInBounds(getX(index), getY(index));
     }
 
     public boolean isInBounds(int x, int y)
     {
-        return isInBounds(getIndex(x,y));
+        return x >=0 && x < size && y >= 0 && y < size;
+    }
+
+    public boolean isValidMove(int x, int y, ReversiPiece playerPiece)
+    {
+        boolean valid = false;
+
+        if (getPieceAt(x, y) == null)
+        {
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0)
+                    {
+                        continue;
+                    }
+
+                    if (isInBounds(x + dx, y + dy)
+                            && getPieceAt(x + dx, y + dy) == playerPiece.getOpponent())
+                    {
+                        int r = 2;
+                        while (isInBounds(x + r * dx, y + r * dy)
+                                && getPieceAt(x + r * dx, y + r * dy) == playerPiece.getOpponent())
+                        {
+                            r++;
+                        }
+
+                        if (isInBounds(x + r * dx, y + r * dy)
+                                && getPieceAt(x + r * dx, y + r * dy) == playerPiece)
+                        {
+                            valid = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        return valid;
+    }
+
+    public void makeMove(int x, int y, ReversiPiece piece)
+    {
+        if( isInBounds(x, y) )
+        {
+            boolean didFlip = false;
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0)
+                    {
+                        continue;
+                    }
+
+                    didFlip = flipInDirection(x + dx, y + dy, dx, dy, piece) || didFlip;
+                }
+            }
+
+            if (didFlip)
+            {
+                state.put(y * size + x, piece);
+            }
+        }
+    }
+
+    private boolean flipInDirection(int x, int y, int dx, int dy, ReversiPiece piece)
+    {
+        if (isInBounds(x, y))
+        {
+            if (getPieceAt(x, y) == piece.getOpponent())
+            {
+                if (flipInDirection(x + dx, y + dy, dx, dy, piece))
+                {
+                    putPieceAt(x, y, piece);
+                    return true;
+                }
+            }
+            else if (getPieceAt(x, y) == piece)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

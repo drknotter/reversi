@@ -29,7 +29,8 @@ public class ReversiActivity extends Activity
         boardView = (ReversiBoardView) findViewById(R.id.board_view);
         boardController = new ReversiBoardController(boardModel, boardView);
 
-        boardView.initialize(boardController);
+        boardView.initialize(boardController, boardModel.getSize());
+        boardController.updateView();
     }
 
     @Override

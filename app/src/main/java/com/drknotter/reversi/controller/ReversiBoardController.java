@@ -1,5 +1,8 @@
 package com.drknotter.reversi.controller;
 
+import android.nfc.Tag;
+import android.util.Log;
+
 import com.drknotter.reversi.model.ReversiBoardModel;
 import com.drknotter.reversi.model.ReversiPiece;
 import com.drknotter.reversi.view.ReversiBoardView;
@@ -9,6 +12,8 @@ import com.drknotter.reversi.view.ReversiBoardView;
  */
 public class ReversiBoardController implements ReversiBoardView.OnPositionTouchedListener
 {
+    private final String TAG = ReversiBoardController.class.getSimpleName();
+
     private ReversiBoardModel model;
     private ReversiBoardView view;
     private ReversiPiece activePlayer = ReversiPiece.DARK;
@@ -20,77 +25,45 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
         this.view = view;
     }
 
-    public ReversiBoardModel getModel()
-    {
-        return model;
-    }
-
-    public ReversiBoardView getView()
-    {
-        return view;
-    }
-
-    public int getBoardSize()
-    {
-        return model.getSize();
-    }
-
     @Override
-    public void onPositionViewTouched(int index)
+    public void onPositionViewTouched(int x, int y)
     {
-        if( isValidMove(index) )
-        {
 
+        if( model.isValidMove(x, y, activePlayer) )
+        {
+            // The player finalized their move.
+            if( view.isSelected(x, y) )
+            {
+                model.makeMove(x, y, activePlayer);
+                view.selectNone();
+                activePlayer = activePlayer.getOpponent();
+            }
+            else // The player is making an initial move.
+            {
+                view.select(x, y, activePlayer);
+            }
         }
         else
         {
             view.selectNone();
-        }
-    }
-
-    public boolean isValidMove(int index)
-    {
-        boolean valid = false;
-        int x = model.getX(index);
-        int y = model.getY(index);
-
-        for( int dx = -1; dx <=1; dx++ )
-        {
-            for( int dy = -1; dy <= 1; dy++ )
-            {
-                if( dx == 0 && dy == 0 )
-                {
-                    continue;
-                }
-
-                if( model.isInBounds(x+dx,y+dy)
-                        && model.getPieceAt(x+dx,y+dy) == activePlayer.getOpponent() )
-                {
-                    int r = 2;
-                    while( model.isInBounds(x+r*dx, y+r*dy)
-                            && model.getPieceAt(x+r*dx, y+r*dy) == activePlayer.getOpponent() )
-                    {
-                        r++;
-                    }
-                }
-            }
+            currentSelectedIndex = -1;
         }
 
-
-        return valid;
+        updateView();
     }
+
 
     public void updateView()
     {
-        for (int i = 0; i < getBoardSize() * getBoardSize(); i++)
+        for (int x = 0; x < model.getSize(); x++)
         {
-            ReversiPiece piece = model.getPieceAt(i);
-            int resId = 0;
-            if( piece != null )
+            for (int y = 0; y < model.getSize(); y++)
             {
-                resId = piece.getImageResource();
+                ReversiPiece piece = model.getPieceAt(x, y);
+                view.setPieceAt(x, y, piece);
             }
-            view.getPositionViewAt(i).setImageResource(resId);
         }
     }
+
+
 }
