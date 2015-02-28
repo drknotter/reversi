@@ -7,6 +7,8 @@ import com.drknotter.reversi.model.ReversiBoardModel;
 import com.drknotter.reversi.model.ReversiPiece;
 import com.drknotter.reversi.view.ReversiBoardView;
 
+import java.util.Set;
+
 /**
  * Created by plunkett on 2/22/15.
  */
@@ -17,7 +19,6 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
     private ReversiBoardModel model;
     private ReversiBoardView view;
     private ReversiPiece activePlayer = ReversiPiece.DARK;
-    private int currentSelectedIndex = -1;
 
     public ReversiBoardController(ReversiBoardModel model, ReversiBoardView view)
     {
@@ -35,8 +36,8 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
             if( view.isSelected(x, y) )
             {
                 model.makeMove(x, y, activePlayer);
-                view.selectNone();
-                activePlayer = activePlayer.getOpponent();
+                view.confirmSelection(x, y);
+                nextTurn();
             }
             else // The player is making an initial move.
             {
@@ -46,12 +47,33 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
         else
         {
             view.selectNone();
-            currentSelectedIndex = -1;
         }
 
         updateView();
     }
 
+    private void nextTurn()
+    {
+        activePlayer = activePlayer.getOpponent();
+        if( !model.canPlayerMove(activePlayer) )
+        {
+            activePlayer = activePlayer.getOpponent();
+            if( !model.canPlayerMove(activePlayer) )
+            {
+                gameOver();
+            }
+        }
+    }
+
+    private void gameOver()
+    {
+        Set<ReversiPiece> winners = model.currentLeaders();
+        Log.v(TAG, "And the winners are...");
+        for( ReversiPiece piece : winners )
+        {
+            Log.v(TAG, piece.name() + "!");
+        }
+    }
 
     public void updateView()
     {

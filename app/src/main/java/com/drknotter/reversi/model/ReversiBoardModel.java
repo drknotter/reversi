@@ -2,6 +2,10 @@ package com.drknotter.reversi.model;
 
 import android.util.SparseArray;
 
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Created by plunkett on 2/22/15.
  */
@@ -21,7 +25,7 @@ public class ReversiBoardModel
 
     public void putPieceAt(int x, int y, ReversiPiece piece)
     {
-        if( isInBounds(x, y) )
+        if (isInBounds(x, y))
         {
             putPieceAt(size * y + x, piece);
         }
@@ -34,7 +38,7 @@ public class ReversiBoardModel
 
     public ReversiPiece getPieceAt(int x, int y)
     {
-        if( isInBounds(x, y ) )
+        if (isInBounds(x, y))
         {
             return getPieceAt(size * y + x);
         }
@@ -76,7 +80,7 @@ public class ReversiBoardModel
 
     public boolean isInBounds(int x, int y)
     {
-        return x >=0 && x < size && y >= 0 && y < size;
+        return x >= 0 && x < size && y >= 0 && y < size;
     }
 
     public boolean isValidMove(int x, int y, ReversiPiece playerPiece)
@@ -119,7 +123,7 @@ public class ReversiBoardModel
 
     public void makeMove(int x, int y, ReversiPiece piece)
     {
-        if( isInBounds(x, y) )
+        if (isInBounds(x, y))
         {
             boolean didFlip = false;
             for (int dx = -1; dx <= 1; dx++)
@@ -161,5 +165,56 @@ public class ReversiBoardModel
         }
 
         return false;
+    }
+
+    public boolean canPlayerMove(ReversiPiece player)
+    {
+        boolean canMove = false;
+
+        for (int x = 0; x < getSize() && !canMove; x++)
+        {
+            for (int y = 0; y < getSize() && !canMove; y++)
+            {
+                if (isValidMove(x, y, player))
+                {
+                    canMove = true;
+                }
+            }
+        }
+
+        return canMove;
+    }
+
+    public Set<ReversiPiece> currentLeaders()
+    {
+        HashMap<ReversiPiece, Integer> counts = new HashMap<ReversiPiece, Integer>();
+        for( ReversiPiece piece : ReversiPiece.values() )
+        {
+            counts.put(piece, 0);
+        }
+
+        for( int i=0; i<state.size(); i++ )
+        {
+            counts.put(state.valueAt(i), counts.get(state.valueAt(i)) + 1);
+        }
+
+        int max = -1;
+        HashSet<ReversiPiece> leaders = new HashSet<ReversiPiece>();
+        for( ReversiPiece piece : counts.keySet() )
+        {
+            int count = counts.get(piece);
+            if( count > max )
+            {
+                leaders = new HashSet<ReversiPiece>();
+                leaders.add(piece);
+                max = count;
+            }
+            else if( count == max )
+            {
+                leaders.add(piece);
+            }
+        }
+
+        return leaders;
     }
 }

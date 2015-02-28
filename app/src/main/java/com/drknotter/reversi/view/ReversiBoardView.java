@@ -1,10 +1,13 @@
 package com.drknotter.reversi.view;
 
+import android.animation.Animator;
+import android.animation.AnimatorSet;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.View;
+import android.view.animation.Animation;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
@@ -15,7 +18,7 @@ import com.drknotter.reversi.model.ReversiPiece;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ReversiBoardView extends LinearLayout
+public class ReversiBoardView extends LinearLayout implements Animator.AnimatorListener
 {
     private static final String TAG = ReversiBoardView.class.getSimpleName();
 
@@ -24,7 +27,8 @@ public class ReversiBoardView extends LinearLayout
     private int boardSize;
 
     private int currentSelectionIndex = -1;
-    private ObjectAnimator selectionPulse;
+    private AnimatorSet selectionPulse;
+    private AnimatorSet endSelection;
 
     public ReversiBoardView(Context context)
     {
@@ -104,13 +108,29 @@ public class ReversiBoardView extends LinearLayout
             }
             currentSelectionIndex = y * boardSize + x;
 
-
             setPieceAt(x, y, piece);
-            selectionPulse = ObjectAnimator.ofFloat(getPositionViewAt(x, y), "alpha", 1f, 0f, 1f);
-            selectionPulse.setDuration(750);
-            selectionPulse.setRepeatMode(ValueAnimator.RESTART);
-            selectionPulse.setRepeatCount(ValueAnimator.INFINITE);
+            selectionPulse = SelectionAnimatorFactory.newInstance(SelectionAnimatorFactory.AnimationType.MAKE_SELECTION,
+                    getPositionViewAt(x, y));
             selectionPulse.start();
+        }
+    }
+
+    public void confirmSelection(int x, int y)
+    {
+        if( x >= 0 && x < boardSize && y >= 0 && y < boardSize )
+        {
+            int index = y * boardSize + x;
+            if( index == currentSelectionIndex )
+            {
+                if (selectionPulse != null)
+                {
+                    selectionPulse.cancel();
+                }
+                SelectionAnimatorFactory.newInstance(
+                        SelectionAnimatorFactory.AnimationType.CONFIRM_SELECTION, positions.get(index))
+                        .start();
+                currentSelectionIndex = -1;
+            }
         }
     }
 
@@ -123,9 +143,11 @@ public class ReversiBoardView extends LinearLayout
 
         if( currentSelectionIndex >= 0 && currentSelectionIndex < positions.size() )
         {
-            positions.get(currentSelectionIndex).setAlpha(1f);
+            View view = positions.get(currentSelectionIndex);
+            endSelection = SelectionAnimatorFactory.newInstance(SelectionAnimatorFactory.AnimationType.END_SELECTION, view);
+            endSelection.addListener(this);
+            endSelection.start();
         }
-        currentSelectionIndex = -1;
     }
 
     public void setPieceAt(int x, int y, ReversiPiece piece)
@@ -157,6 +179,30 @@ public class ReversiBoardView extends LinearLayout
             height = width;
         }
         super.onMeasure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY));
+    }
+
+    @Override
+    public void onAnimationStart(Animator animator)
+    {
+    }
+
+    @Override
+    public void onAnimationEnd(Animator animator)
+    {
+        if( animator == endSelection )
+        {
+            currentSelectionIndex = -1;
+        }
+    }
+
+    @Override
+    public void onAnimationCancel(Animator animator)
+    {
+    }
+
+    @Override
+    public void onAnimationRepeat(Animator animator)
+    {
     }
 
     private class ReversiRowView extends LinearLayout
