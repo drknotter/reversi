@@ -18,7 +18,7 @@ public class ReversiAnimatorFactory
         RESET,
     }
 
-    private static final int ZOOM_DURATION = 200;
+    private static final int ZOOM_DURATION = 150;
 
     public static AnimatorSet newInstance(AnimationType type, View view)
     {

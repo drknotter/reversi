@@ -59,13 +59,6 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
                 }
                 break;
 
-            case ReversiMessages.FLIP:
-                if( msg.obj instanceof List )
-                {
-                    doFlip((List<List<ReversiPositionModel>>) msg.obj);
-                }
-                break;
-
             case ReversiMessages.NEXT_TURN:
                 nextTurn();
                 break;
@@ -96,57 +89,59 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
                 @Override
                 public void run()
                 {
-                    moveView.setScaleX(0f);
-                    moveView.setScaleY(0f);
-                    moveView.setImageResource(activePlayer.getImageResource());
-                    Animator zoomInMove = ReversiAnimatorFactory.newInstance(ReversiAnimatorFactory.AnimationType.ZOOM_IN, moveView);
-
-                    AnimatorSet firstFlip = new AnimatorSet();
-                    for( List<ReversiPositionModel> flipList : allFlips )
-                    {
-                        if( flipList.size() > 0 )
-                        {
-                            ReversiPositionModel neighborPosition = flipList.get(0);
-                            ImageView neighborView = view.getPositionViewAt(neighborPosition.getX(), neighborPosition.getY());
-                            Animator zoomOutNeighbor = ReversiAnimatorFactory.newInstance(
-                                    ReversiAnimatorFactory.AnimationType.ZOOM_OUT,
-                                    neighborView);
-                            firstFlip.play(zoomInMove).with(zoomOutNeighbor);
-                        }
-                    }
-                    firstFlip.addListener(new AnimatorListenerAdapter()
-                    {
-                        @Override
-                        public void onAnimationEnd(Animator animation)
-                        {
-                            super.onAnimationEnd(animation);
-                            Message msg = Message.obtain(ReversiBoardController.this,
-                                    ReversiMessages.FLIP,
-                                    allFlips);
-                            sendMessage(msg);
-                        }
-                    });
-                    firstFlip.start();
+                    doFlip(moveView, allFlips);
                 }
             });
 
         }
     }
 
-    private void doFlip(List<List<ReversiPositionModel>> allFlips)
+    private void doFlip(ImageView moveView, List<List<ReversiPositionModel>> allFlips)
     {
-        if( allFlips.size() == 0 )
+        moveView.setScaleX(0f);
+        moveView.setScaleY(0f);
+        moveView.setImageResource(activePlayer.getImageResource());
+        Animator zoomInMove = ReversiAnimatorFactory.newInstance(ReversiAnimatorFactory.AnimationType.ZOOM_IN, moveView);
+
+        AnimatorSet allFlipsAnimatorSet = new AnimatorSet();
+        allFlipsAnimatorSet.play(zoomInMove);
+        for( List<ReversiPositionModel> flipList : allFlips )
         {
-            this.sendEmptyMessage(ReversiMessages.NEXT_TURN);
-        }
-        else
-        {
-            AnimatorSet flip = new AnimatorSet();
-            for ( List<ReversiPositionModel> flipList : allFlips )
+            Animator lastZoomIn = zoomInMove;
+            for( ReversiPositionModel flipPosition : flipList )
             {
-                
+                final ImageView neighborView = view.getPositionViewAt(flipPosition.getX(), flipPosition.getY());
+                Animator thisZoomOut = ReversiAnimatorFactory.newInstance(
+                        ReversiAnimatorFactory.AnimationType.ZOOM_OUT,
+                        neighborView);
+                allFlipsAnimatorSet.play(lastZoomIn).with(thisZoomOut);
+
+                lastZoomIn = ReversiAnimatorFactory.newInstance(
+                        ReversiAnimatorFactory.AnimationType.ZOOM_IN,
+                        neighborView);
+                allFlipsAnimatorSet.play(lastZoomIn).after(thisZoomOut);
+
+                thisZoomOut.addListener(new AnimatorListenerAdapter()
+                {
+                    @Override
+                    public void onAnimationEnd(Animator animation)
+                    {
+                        super.onAnimationEnd(animation);
+                        neighborView.setImageResource(activePlayer.getImageResource());
+                    }
+                });
             }
         }
+        allFlipsAnimatorSet.addListener(new AnimatorListenerAdapter()
+        {
+            @Override
+            public void onAnimationEnd(Animator animation)
+            {
+                super.onAnimationEnd(animation);
+                sendEmptyMessage(ReversiMessages.NEXT_TURN);
+            }
+        });
+        allFlipsAnimatorSet.start();
     }
 
     private void nextTurn()
