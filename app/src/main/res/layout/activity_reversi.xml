@@ -1,17 +1,33 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    tools:context=".ReversiActivity"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:gravity="center" tools:context=".ReversiActivity">
+    android:padding="@dimen/activity_horizontal_margin">
 
-    <com.drknotter.reversi.view.ReversiBoardView
-        android:id="@+id/board_view"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="wrap_content"
+        android:gravity="center">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginRight="@dimen/activity_vertical_margin"
+            android:gravity="center"
+            android:textSize="@dimen/current_player_text"
+            android:text="@string/current_player"/>
+
+        <ImageView
+            android:id="@+id/current_player_icon"
+            android:layout_width="@dimen/current_player_icon"
+            android:layout_height="@dimen/current_player_icon"
+            android:scaleType="centerInside"/>
+    </LinearLayout>
+
+    <include layout="@layout/reversi_board"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true" />
 
 </RelativeLayout>

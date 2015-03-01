@@ -3,4 +3,6 @@
     <dimen name="activity_horizontal_margin">16dp</dimen>
     <dimen name="activity_vertical_margin">16dp</dimen>
     <dimen name="board_divider_size">2dp</dimen>
+    <dimen name="current_player_text">20sp</dimen>
+    <dimen name="current_player_icon">45dp</dimen>
 </resources>

@@ -2,8 +2,10 @@ package com.drknotter.reversi.model;
 
 import android.util.SparseArray;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -121,8 +123,10 @@ public class ReversiBoardModel
         return valid;
     }
 
-    public void makeMove(int x, int y, ReversiPiece piece)
+    public List<List<ReversiPositionModel>> makeMove(int x, int y, ReversiPiece piece)
     {
+        List<List<ReversiPositionModel>> allFlips = new ArrayList<List<ReversiPositionModel>>();
+
         if (isInBounds(x, y))
         {
             boolean didFlip = false;
@@ -135,7 +139,13 @@ public class ReversiBoardModel
                         continue;
                     }
 
-                    didFlip = flipInDirection(x + dx, y + dy, dx, dy, piece) || didFlip;
+                    List<ReversiPositionModel> flippedPositions = new ArrayList<ReversiPositionModel>();
+                    didFlip = flipInDirection(x + dx, y + dy, dx, dy, piece, flippedPositions) || didFlip;
+
+                    if( flippedPositions.size() > 0 )
+                    {
+                        allFlips.add(flippedPositions);
+                    }
                 }
             }
 
@@ -144,17 +154,20 @@ public class ReversiBoardModel
                 state.put(y * size + x, piece);
             }
         }
+
+        return allFlips;
     }
 
-    private boolean flipInDirection(int x, int y, int dx, int dy, ReversiPiece piece)
+    private boolean flipInDirection(int x, int y, int dx, int dy, ReversiPiece piece, List<ReversiPositionModel> flippedPositions)
     {
         if (isInBounds(x, y))
         {
             if (getPieceAt(x, y) == piece.getOpponent())
             {
-                if (flipInDirection(x + dx, y + dy, dx, dy, piece))
+                if( flipInDirection(x + dx, y + dy, dx, dy, piece, flippedPositions) )
                 {
                     putPieceAt(x, y, piece);
+                    flippedPositions.add(0, new ReversiPositionModel(x,y));
                     return true;
                 }
             }

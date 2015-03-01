@@ -2,12 +2,15 @@ package com.drknotter.reversi;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.ImageView;
 
 import com.drknotter.reversi.controller.ReversiBoardController;
 import com.drknotter.reversi.model.ReversiBoardModel;
-import com.drknotter.reversi.model.ReversiPiece;
 import com.drknotter.reversi.view.ReversiBoardView;
 
 
@@ -19,6 +22,8 @@ public class ReversiActivity extends Activity
     ReversiBoardView boardView;
     ReversiBoardController boardController;
 
+    HandlerThread handlerThread;
+
     @Override
     protected void onCreate(Bundle savedInstanceState)
     {
@@ -27,10 +32,22 @@ public class ReversiActivity extends Activity
 
         boardModel = new ReversiBoardModel();
         boardView = (ReversiBoardView) findViewById(R.id.board_view);
-        boardController = new ReversiBoardController(boardModel, boardView);
+        ImageView currentPlayerIcon = (ImageView) findViewById(R.id.current_player_icon);
 
-        boardView.initialize(boardController, boardModel.getSize());
-        boardController.updateView();
+        handlerThread = new HandlerThread("reversi-thread");
+        handlerThread.start();
+        boardController = new ReversiBoardController(
+                handlerThread.getLooper(),
+                new Handler(Looper.getMainLooper()),
+
+                boardModel, boardView, currentPlayerIcon);
+    }
+
+    @Override
+    protected void onDestroy()
+    {
+        super.onDestroy();
+        handlerThread.quit();
     }
 
     @Override

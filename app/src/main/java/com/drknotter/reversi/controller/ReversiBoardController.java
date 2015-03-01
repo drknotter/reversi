@@ -1,55 +1,152 @@
 package com.drknotter.reversi.controller;
 
-import android.nfc.Tag;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.AnimatorSet;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
+import android.widget.ImageView;
 
 import com.drknotter.reversi.model.ReversiBoardModel;
 import com.drknotter.reversi.model.ReversiPiece;
+import com.drknotter.reversi.model.ReversiPositionModel;
+import com.drknotter.reversi.view.ReversiAnimatorFactory;
 import com.drknotter.reversi.view.ReversiBoardView;
 
+import java.util.List;
 import java.util.Set;
 
 /**
  * Created by plunkett on 2/22/15.
  */
-public class ReversiBoardController implements ReversiBoardView.OnPositionTouchedListener
+public class ReversiBoardController extends Handler implements ReversiBoardView.OnPositionTouchedListener
 {
     private final String TAG = ReversiBoardController.class.getSimpleName();
 
     private ReversiBoardModel model;
     private ReversiBoardView view;
+    private ImageView currentPlayerIcon;
+    private Handler uiHandler;
+
     private ReversiPiece activePlayer = ReversiPiece.DARK;
 
-    public ReversiBoardController(ReversiBoardModel model, ReversiBoardView view)
+    public ReversiBoardController(Looper looper, Handler uiHandler, ReversiBoardModel model, ReversiBoardView view, ImageView currentPlayerIcon)
     {
+        super(looper);
+
+        this.uiHandler = uiHandler;
         this.model = model;
         this.view = view;
+        this.currentPlayerIcon = currentPlayerIcon;
+        this.sendEmptyMessage(ReversiMessages.INITIALIZE);
     }
 
     @Override
-    public void onPositionViewTouched(int x, int y)
+    public void handleMessage(Message msg)
     {
+        switch ( msg.what )
+        {
+            case ReversiMessages.INITIALIZE:
+                start();
+                break;
 
+            case ReversiMessages.TOUCH:
+                if( msg.obj instanceof  ReversiPositionModel )
+                {
+                    handleTouch((ReversiPositionModel) msg.obj);
+                }
+                break;
+
+            case ReversiMessages.FLIP:
+                if( msg.obj instanceof List )
+                {
+                    doFlip((List<List<ReversiPositionModel>>) msg.obj);
+                }
+                break;
+
+            case ReversiMessages.NEXT_TURN:
+                nextTurn();
+                break;
+
+            case ReversiMessages.GAME_OVER:
+                gameOver();
+                break;
+        }
+    }
+
+    private void start()
+    {
+        view.setListener(this);
+        view.initialize(model.getSize());
+        updateView();
+    }
+
+    private void handleTouch(ReversiPositionModel touchPosition)
+    {
+        int x = touchPosition.getX();
+        int y = touchPosition.getY();
         if( model.isValidMove(x, y, activePlayer) )
         {
-            // The player finalized their move.
-            if( view.isSelected(x, y) )
+            final List<List<ReversiPositionModel>> allFlips = model.makeMove(x, y, activePlayer);
+            final ImageView moveView = view.getPositionViewAt(x,y);
+            uiHandler.post(new Runnable()
             {
-                model.makeMove(x, y, activePlayer);
-                view.confirmSelection(x, y);
-                nextTurn();
-            }
-            else // The player is making an initial move.
-            {
-                view.select(x, y, activePlayer);
-            }
+                @Override
+                public void run()
+                {
+                    moveView.setScaleX(0f);
+                    moveView.setScaleY(0f);
+                    moveView.setImageResource(activePlayer.getImageResource());
+                    Animator zoomInMove = ReversiAnimatorFactory.newInstance(ReversiAnimatorFactory.AnimationType.ZOOM_IN, moveView);
+
+                    AnimatorSet firstFlip = new AnimatorSet();
+                    for( List<ReversiPositionModel> flipList : allFlips )
+                    {
+                        if( flipList.size() > 0 )
+                        {
+                            ReversiPositionModel neighborPosition = flipList.get(0);
+                            ImageView neighborView = view.getPositionViewAt(neighborPosition.getX(), neighborPosition.getY());
+                            Animator zoomOutNeighbor = ReversiAnimatorFactory.newInstance(
+                                    ReversiAnimatorFactory.AnimationType.ZOOM_OUT,
+                                    neighborView);
+                            firstFlip.play(zoomInMove).with(zoomOutNeighbor);
+                        }
+                    }
+                    firstFlip.addListener(new AnimatorListenerAdapter()
+                    {
+                        @Override
+                        public void onAnimationEnd(Animator animation)
+                        {
+                            super.onAnimationEnd(animation);
+                            Message msg = Message.obtain(ReversiBoardController.this,
+                                    ReversiMessages.FLIP,
+                                    allFlips);
+                            sendMessage(msg);
+                        }
+                    });
+                    firstFlip.start();
+                }
+            });
+
+        }
+    }
+
+    private void doFlip(List<List<ReversiPositionModel>> allFlips)
+    {
+        if( allFlips.size() == 0 )
+        {
+            this.sendEmptyMessage(ReversiMessages.NEXT_TURN);
         }
         else
         {
-            view.selectNone();
+            AnimatorSet flip = new AnimatorSet();
+            for ( List<ReversiPositionModel> flipList : allFlips )
+            {
+                
+            }
         }
-
-        updateView();
     }
 
     private void nextTurn()
@@ -60,9 +157,11 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
             activePlayer = activePlayer.getOpponent();
             if( !model.canPlayerMove(activePlayer) )
             {
-                gameOver();
+                this.sendEmptyMessage(ReversiMessages.GAME_OVER);
+                return;
             }
         }
+        updateView();
     }
 
     private void gameOver()
@@ -75,17 +174,35 @@ public class ReversiBoardController implements ReversiBoardView.OnPositionTouche
         }
     }
 
-    public void updateView()
+    @Override
+    public void onPositionViewTouched(int x, int y)
     {
-        for (int x = 0; x < model.getSize(); x++)
-        {
-            for (int y = 0; y < model.getSize(); y++)
-            {
-                ReversiPiece piece = model.getPieceAt(x, y);
-                view.setPieceAt(x, y, piece);
-            }
-        }
+        this.sendMessage(Message.obtain(this, ReversiMessages.TOUCH, new ReversiPositionModel(x, y)));
     }
 
+    private void setCurrentPlayerIcon()
+    {
+        currentPlayerIcon.setImageResource(activePlayer.getImageResource());
+    }
 
+    public void updateView()
+    {
+        uiHandler.post(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                for (int x = 0; x < model.getSize(); x++)
+                {
+                    for (int y = 0; y < model.getSize(); y++)
+                    {
+                        ReversiPiece piece = model.getPieceAt(x, y);
+                        view.setPieceAt(x, y, piece);
+                    }
+                }
+
+                setCurrentPlayerIcon();
+            }
+        });
+    }
 }
