@@ -7,9 +7,12 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.ImageView;
 
 import com.drknotter.reversi.model.ReversiBoardModel;
+import com.drknotter.reversi.model.ReversiMoveModel;
 import com.drknotter.reversi.model.ReversiPiece;
 import com.drknotter.reversi.model.ReversiPositionModel;
 import com.drknotter.reversi.view.ReversiAnimatorFactory;
@@ -17,6 +20,7 @@ import com.drknotter.reversi.view.ReversiBoardView;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Stack;
 
 /**
  * Created by plunkett on 2/22/15.
@@ -25,21 +29,31 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
 {
     private final String TAG = ReversiBoardController.class.getSimpleName();
 
-    private ReversiBoardModel model;
-    private ReversiBoardView view;
-    private ImageView currentPlayerIcon;
     private Handler uiHandler;
 
-    private ReversiPiece activePlayer = ReversiPiece.DARK;
+    private ReversiBoardModel model;
+    private ReversiBoardView view;
 
-    public ReversiBoardController(Looper looper, Handler uiHandler, ReversiBoardModel model, ReversiBoardView view, ImageView currentPlayerIcon)
+    private ImageView currentPlayerIcon;
+    private Button undoButton;
+
+    private ReversiPiece activePlayer = ReversiPiece.DARK;
+    private Stack<ReversiMoveModel> moveHistory = new Stack<ReversiMoveModel>();
+
+    public ReversiBoardController(Looper looper, Handler uiHandler,
+                                  ReversiBoardModel model, ReversiBoardView view,
+                                  ImageView currentPlayerIcon, Button undoButton)
     {
         super(looper);
 
         this.uiHandler = uiHandler;
+
         this.model = model;
         this.view = view;
+
         this.currentPlayerIcon = currentPlayerIcon;
+        this.undoButton = undoButton;
+
         this.sendEmptyMessage(ReversiMessages.INITIALIZE);
     }
 
@@ -59,8 +73,16 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
                 }
                 break;
 
+            case ReversiMessages.UNDO:
+                undoTurn();
+                break;
+
             case ReversiMessages.NEXT_TURN:
                 nextTurn();
+                break;
+
+            case ReversiMessages.PREV_TURN:
+                prevTurn();
                 break;
 
             case ReversiMessages.GAME_OVER:
@@ -74,6 +96,14 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
         view.setListener(this);
         view.initialize(model.getSize());
         updateView();
+        undoButton.setOnClickListener(new View.OnClickListener()
+        {
+            @Override
+            public void onClick(View view)
+            {
+                sendEmptyMessage(ReversiMessages.UNDO);
+            }
+        });
     }
 
     private void handleTouch(ReversiPositionModel touchPosition)
@@ -82,25 +112,33 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
         int y = touchPosition.getY();
         if( model.isValidMove(x, y, activePlayer) )
         {
-            final List<List<ReversiPositionModel>> allFlips = model.makeMove(x, y, activePlayer);
-            final ImageView moveView = view.getPositionViewAt(x,y);
+            List<List<ReversiPositionModel>> allFlips = model.makeMove(x, y, activePlayer);
+            final ReversiMoveModel theMove = new ReversiMoveModel(activePlayer, touchPosition, allFlips);
+            moveHistory.push(theMove);
             uiHandler.post(new Runnable()
             {
                 @Override
                 public void run()
                 {
-                    doFlip(moveView, allFlips);
+                    doFlipAnimation(theMove);
                 }
             });
-
         }
     }
 
-    private void doFlip(ImageView moveView, List<List<ReversiPositionModel>> allFlips)
+    private void doFlipAnimation(ReversiMoveModel theMove)
     {
+        view.setListener(null);
+
+        ImageView moveView = view.getPositionViewAt(
+                theMove.getMovePosition().getX(),
+                theMove.getMovePosition().getY());
+        List<List<ReversiPositionModel>> allFlips = theMove.getFlipPositions();
+        final ReversiPiece thePiece = theMove.getPlayerPiece();
+
         moveView.setScaleX(0f);
         moveView.setScaleY(0f);
-        moveView.setImageResource(activePlayer.getImageResource());
+        moveView.setImageResource(thePiece.getImageResource());
         Animator zoomInMove = ReversiAnimatorFactory.newInstance(ReversiAnimatorFactory.AnimationType.ZOOM_IN, moveView);
 
         AnimatorSet allFlipsAnimatorSet = new AnimatorSet();
@@ -127,7 +165,7 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
                     public void onAnimationEnd(Animator animation)
                     {
                         super.onAnimationEnd(animation);
-                        neighborView.setImageResource(activePlayer.getImageResource());
+                        neighborView.setImageResource(thePiece.getImageResource());
                     }
                 });
             }
@@ -138,10 +176,89 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
             public void onAnimationEnd(Animator animation)
             {
                 super.onAnimationEnd(animation);
+                view.setListener(ReversiBoardController.this);
                 sendEmptyMessage(ReversiMessages.NEXT_TURN);
             }
         });
         allFlipsAnimatorSet.start();
+    }
+
+    private void undoFlipAnimation(ReversiMoveModel theMove)
+    {
+        view.setListener(null);
+
+        ImageView moveView = view.getPositionViewAt(
+                theMove.getMovePosition().getX(),
+                theMove.getMovePosition().getY());
+        List<List<ReversiPositionModel>> allFlips = theMove.getFlipPositions();
+        final ReversiPiece thePiece = theMove.getPlayerPiece();
+
+        moveView.setScaleX(1f);
+        moveView.setScaleY(1f);
+        moveView.setImageResource(thePiece.getImageResource());
+        Animator zoomOutMove = ReversiAnimatorFactory.newInstance(ReversiAnimatorFactory.AnimationType.ZOOM_OUT, moveView);
+
+        AnimatorSet allFlipsAnimatorSet = new AnimatorSet();
+        allFlipsAnimatorSet.play(zoomOutMove);
+        for( List<ReversiPositionModel> flipList : allFlips )
+        {
+            Animator lastZoomIn = zoomOutMove;
+            for( ReversiPositionModel flipPosition : flipList )
+            {
+                final ImageView neighborView = view.getPositionViewAt(flipPosition.getX(), flipPosition.getY());
+                Animator thisZoomOut = ReversiAnimatorFactory.newInstance(
+                        ReversiAnimatorFactory.AnimationType.ZOOM_OUT,
+                        neighborView);
+                allFlipsAnimatorSet.play(lastZoomIn).with(thisZoomOut);
+
+                lastZoomIn = ReversiAnimatorFactory.newInstance(
+                        ReversiAnimatorFactory.AnimationType.ZOOM_IN,
+                        neighborView);
+                allFlipsAnimatorSet.play(lastZoomIn).after(thisZoomOut);
+
+                thisZoomOut.addListener(new AnimatorListenerAdapter()
+                {
+                    @Override
+                    public void onAnimationEnd(Animator animation)
+                    {
+                        super.onAnimationEnd(animation);
+                        neighborView.setImageResource(thePiece.getOpponent().getImageResource());
+                    }
+                });
+            }
+        }
+        allFlipsAnimatorSet.addListener(new AnimatorListenerAdapter()
+        {
+            @Override
+            public void onAnimationEnd(Animator animation)
+            {
+                super.onAnimationEnd(animation);
+                view.setListener(ReversiBoardController.this);
+                sendEmptyMessage(ReversiMessages.PREV_TURN);
+            }
+        });
+        allFlipsAnimatorSet.start();
+    }
+
+    private void undoTurn()
+    {
+        if (moveHistory.size() > 0)
+        {
+            final ReversiMoveModel theMove = moveHistory.pop();
+            model.undoMove(theMove);
+            uiHandler.post(new Runnable()
+            {
+                @Override
+                public void run()
+                {
+                    undoFlipAnimation(theMove);
+                }
+            });
+        }
+        else
+        {
+            prevTurn();
+        }
     }
 
     private void nextTurn()
@@ -155,6 +272,19 @@ public class ReversiBoardController extends Handler implements ReversiBoardView.
                 this.sendEmptyMessage(ReversiMessages.GAME_OVER);
                 return;
             }
+        }
+        updateView();
+    }
+
+    private void prevTurn()
+    {
+        if( moveHistory.size() > 0 )
+        {
+            activePlayer = moveHistory.peek().getPlayerPiece();
+        }
+        else
+        {
+            activePlayer = ReversiPiece.DARK;
         }
         updateView();
     }

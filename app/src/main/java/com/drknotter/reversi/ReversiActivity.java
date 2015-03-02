@@ -7,6 +7,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.widget.Button;
 import android.widget.ImageView;
 
 import com.drknotter.reversi.controller.ReversiBoardController;
@@ -33,14 +34,15 @@ public class ReversiActivity extends Activity
         boardModel = new ReversiBoardModel();
         boardView = (ReversiBoardView) findViewById(R.id.board_view);
         ImageView currentPlayerIcon = (ImageView) findViewById(R.id.current_player_icon);
+        Button undoButton = (Button) findViewById(R.id.undo);
 
         handlerThread = new HandlerThread("reversi-thread");
         handlerThread.start();
         boardController = new ReversiBoardController(
                 handlerThread.getLooper(),
                 new Handler(Looper.getMainLooper()),
-
-                boardModel, boardView, currentPlayerIcon);
+                boardModel, boardView,
+                currentPlayerIcon, undoButton);
     }
 
     @Override

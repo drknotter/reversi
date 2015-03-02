@@ -158,6 +158,25 @@ public class ReversiBoardModel
         return allFlips;
     }
 
+    public void undoMove(ReversiMoveModel theMove)
+    {
+        List<List<ReversiPositionModel>> allFlips = theMove.getFlipPositions();
+        ReversiPositionModel thePosition = theMove.getMovePosition();
+        ReversiPiece opponent = theMove.getPlayerPiece().getOpponent();
+
+        int index = thePosition.getY() * size + thePosition.getX();
+        state.remove(index);
+
+        for( List<ReversiPositionModel> flipList : allFlips )
+        {
+            for( ReversiPositionModel position : flipList )
+            {
+                index = position.getY() * size + position.getX();
+                state.put(index, opponent);
+            }
+        }
+    }
+
     private boolean flipInDirection(int x, int y, int dx, int dy, ReversiPiece piece, List<ReversiPositionModel> flippedPositions)
     {
         if (isInBounds(x, y))
